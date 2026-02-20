@@ -1,0 +1,72 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: comfyui-worker
+  labels:
+    app: comfyui-worker
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: comfyui-worker
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxSurge: 25%
+      maxUnavailable: 25%
+  template:
+    metadata:
+      labels:
+        app: comfyui-worker
+    spec:
+      nodeSelector:
+        kubernetes.io/os: linux
+      containers:
+      - name: comfyui-worker
+        image: runpod/worker-comfyui:5.7.1-base
+        imagePullPolicy: IfNotPresent
+        command: ["/bin/bash", "-c"]
+        args:
+        - |
+          cd /comfyui && python -u main.py --listen 0.0.0.0 --port 8188 --disable-auto-launch --disable-metadata --cpu
+        ports:
+        - name: http
+          containerPort: 8188
+          protocol: TCP
+        env:
+        - name: COMFYUI_OUTPUT_PATH
+          value: /comfyui/output
+        resources:
+          requests:
+            cpu: 10m
+            memory: 2Gi
+          limits:
+            cpu: 500m
+            memory: 8Gi
+        livenessProbe:
+          httpGet:
+            path: /
+            port: 8188
+          initialDelaySeconds: 60
+          periodSeconds: 30
+          failureThreshold: 3
+        readinessProbe:
+          httpGet:
+            path: /
+            port: 8188
+          initialDelaySeconds: 30
+          periodSeconds: 10
+          failureThreshold: 3
+        tty: true
+        volumeMounts:
+        - name: output-volume
+          mountPath: /comfyui/output
+        - name: models-volume
+          mountPath: /comfyui/models
+          subPath: comfyui-models
+      volumes:
+      - name: output-volume
+        emptyDir: {}
+      - name: models-volume
+        persistentVolumeClaim:
+          claimName: local-pvc
