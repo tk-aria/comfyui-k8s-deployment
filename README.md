@@ -5,7 +5,7 @@ ComfyUI を Kubernetes にデプロイするためのマニフェストとスク
 ## 概要
 
 - **イメージ**: `runpod/worker-comfyui:5.7.1-base`
-- **モード**: CPU推論 (GPUなし環境向け)
+- **モード**: GPU推論 (CPU fallback対応)
 - **モデル**: Stable Diffusion v1.5
 
 ## ディレクトリ構成
@@ -13,10 +13,11 @@ ComfyUI を Kubernetes にデプロイするためのマニフェストとスク
 ```
 .
 ├── k8s/
-│   ├── deployment.yaml    # Deployment マニフェスト
-│   ├── service.yaml       # Service マニフェスト
-│   ├── pvc.yaml           # PersistentVolumeClaim (オプション)
-│   └── kustomization.yaml # Kustomize設定
+│   ├── deployment.yaml     # Deployment マニフェスト (自動GPU/CPU検出)
+│   ├── deployment-gpu.yaml # GPU専用Deployment (nvidia.com/gpu要求)
+│   ├── service.yaml        # Service マニフェスト
+│   ├── pvc.yaml            # PersistentVolumeClaim (オプション)
+│   └── kustomization.yaml  # Kustomize設定
 ├── scripts/
 │   ├── download-model.sh  # モデルダウンロードスクリプト
 │   └── test-generation.sh # 画像生成テストスクリプト
@@ -117,12 +118,36 @@ curl -X POST http://comfyui-worker.default.svc.cluster.local:80/prompt \
 
 ## リソース要件
 
+### 通常モード (deployment.yaml)
+
 | リソース | Request | Limit |
 |---------|---------|-------|
 | CPU | 10m | 500m |
 | Memory | 2Gi | 8Gi |
 
+### GPUモード (deployment-gpu.yaml)
+
+| リソース | Request | Limit |
+|---------|---------|-------|
+| CPU | 10m | 4 |
+| Memory | 2Gi | 16Gi |
+| nvidia.com/gpu | 1 | 1 |
+
 **注意**: SD1.5モデルの読み込みと推論には最低4GBのメモリが必要です。
+
+## GPU対応デプロイ
+
+GPUノードが利用可能な場合、GPU専用のDeploymentを使用:
+
+```bash
+kubectl apply -f k8s/deployment-gpu.yaml
+kubectl apply -f k8s/service.yaml
+```
+
+GPUを使用する場合の前提条件:
+- NVIDIA GPU Driver インストール済み
+- NVIDIA Device Plugin for Kubernetes デプロイ済み
+- `nvidia.com/gpu` リソースが利用可能
 
 ## トラブルシューティング
 

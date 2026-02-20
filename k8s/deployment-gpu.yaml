@@ -36,27 +36,33 @@ spec:
         env:
         - name: COMFYUI_OUTPUT_PATH
           value: /comfyui/output
+        - name: NVIDIA_VISIBLE_DEVICES
+          value: "all"
+        - name: NVIDIA_DRIVER_CAPABILITIES
+          value: "compute,utility"
         resources:
           requests:
             cpu: 10m
             memory: 2Gi
+            nvidia.com/gpu: "1"
           limits:
-            cpu: 500m
-            memory: 8Gi
+            cpu: "4"
+            memory: 16Gi
+            nvidia.com/gpu: "1"
         livenessProbe:
           httpGet:
             path: /
             port: 8188
-          initialDelaySeconds: 60
+          initialDelaySeconds: 120
           periodSeconds: 30
-          failureThreshold: 3
+          failureThreshold: 5
         readinessProbe:
           httpGet:
             path: /
             port: 8188
-          initialDelaySeconds: 30
+          initialDelaySeconds: 60
           periodSeconds: 10
-          failureThreshold: 3
+          failureThreshold: 5
         tty: true
         volumeMounts:
         - name: output-volume
@@ -64,6 +70,10 @@ spec:
         - name: models-volume
           mountPath: /comfyui/models
           subPath: comfyui-models
+      tolerations:
+      - key: nvidia.com/gpu
+        operator: Exists
+        effect: NoSchedule
       volumes:
       - name: output-volume
         emptyDir: {}
