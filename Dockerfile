@@ -1,10 +1,10 @@
 # ComfyUI Kubernetes Deployment Dockerfile
-# CPU-optimized version based on runpod-workers/worker-comfyui
+# GPU-enabled version with pre-downloaded workflow models
 
 # Build arguments
-ARG BASE_IMAGE=ubuntu:24.04
+ARG BASE_IMAGE=nvidia/cuda:12.8.0-runtime-ubuntu24.04
 ARG COMFYUI_VERSION=latest
-ARG MODEL_TYPE=none
+ARG MODEL_TYPE=workflow
 
 # Stage 1: Base image with ComfyUI
 FROM ${BASE_IMAGE} AS base
@@ -48,18 +48,18 @@ ENV PATH="/opt/venv/bin:${PATH}"
 # Install comfy-cli and dependencies
 RUN uv pip install comfy-cli pip setuptools wheel
 
-# Install ComfyUI (CPU mode - no CUDA)
-RUN /usr/bin/yes | comfy --workspace /comfyui install --version "${COMFYUI_VERSION}" --cpu
+# Install ComfyUI (GPU mode)
+RUN /usr/bin/yes | comfy --workspace /comfyui install --version "${COMFYUI_VERSION}"
 
-# Install PyTorch CPU version
-RUN uv pip install torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cpu
+# Install PyTorch with CUDA support
+RUN uv pip install torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cu128
 
 WORKDIR /comfyui
 
 # Create model directories
 RUN mkdir -p models/checkpoints models/vae models/unet models/clip \
     models/text_encoders models/diffusion_models models/loras \
-    models/controlnet models/embeddings output
+    models/controlnet models/embeddings models/upscale_models output
 
 # Create extra model paths config
 RUN echo "comfyui:\n\
@@ -91,13 +91,12 @@ set -e\n\
 echo "Starting ComfyUI..."\n\
 cd /comfyui\n\
 \n\
-# Start ComfyUI with CPU mode\n\
+# Start ComfyUI (auto-detect GPU/CPU)\n\
 exec python -u main.py \\\n\
   --listen 0.0.0.0 \\\n\
   --port 8188 \\\n\
   --disable-auto-launch \\\n\
-  --disable-metadata \\\n\
-  --cpu\n' > /start.sh && chmod +x /start.sh
+  --disable-metadata\n' > /start.sh && chmod +x /start.sh
 
 # Expose port
 EXPOSE 8188
@@ -109,39 +108,52 @@ HEALTHCHECK --interval=30s --timeout=10s --start-period=60s --retries=3 \
 # Default command
 CMD ["/start.sh"]
 
-# Stage 2: Download models (optional)
+# Stage 2: Download workflow models
 FROM base AS downloader
 
-ARG MODEL_TYPE=none
-ARG HUGGINGFACE_ACCESS_TOKEN=""
+ARG MODEL_TYPE=workflow
 
 WORKDIR /comfyui
 
-# Download SD 1.5 model if specified
-RUN if [ "$MODEL_TYPE" = "sd15" ]; then \
-      echo "Downloading Stable Diffusion 1.5..." && \
-      wget -q --show-progress -O models/checkpoints/v1-5-pruned-emaonly.safetensors \
-        "https://huggingface.co/stable-diffusion-v1-5/stable-diffusion-v1-5/resolve/main/v1-5-pruned-emaonly.safetensors"; \
-    fi
+# Download Checkpoint: primemix_v21
+RUN echo "Downloading primemix_v21.safetensors..." && \
+    wget -q --show-progress -O models/checkpoints/primemix_v21.safetensors \
+      "https://huggingface.co/Yaohai/DazzleAI/resolve/main/primemix_v21.safetensors"
 
-# Download SDXL model if specified
-RUN if [ "$MODEL_TYPE" = "sdxl" ]; then \
-      echo "Downloading SDXL..." && \
-      wget -q -O models/checkpoints/sd_xl_base_1.0.safetensors \
-        "https://huggingface.co/stabilityai/stable-diffusion-xl-base-1.0/resolve/main/sd_xl_base_1.0.safetensors" && \
-      wget -q -O models/vae/sdxl_vae.safetensors \
-        "https://huggingface.co/stabilityai/sdxl-vae/resolve/main/sdxl_vae.safetensors"; \
-    fi
+# Download ControlNet: QR Code Monster v2
+RUN echo "Downloading control_v1p_sd15_qrcode_monster_v2.safetensors..." && \
+    wget -q --show-progress -O models/controlnet/control_v1p_sd15_qrcode_monster_v2.safetensors \
+      "https://huggingface.co/monster-labs/control_v1p_sd15_qrcode_monster/resolve/main/v2/control_v1p_sd15_qrcode_monster_v2.safetensors"
 
-# Stage 3: Final image (without models - models should be mounted via PVC)
+# Download ControlNet: Brightness
+RUN echo "Downloading control_v1p_sd15_brightness.safetensors..." && \
+    wget -q --show-progress -O models/controlnet/control_v1p_sd15_brightness.safetensors \
+      "https://huggingface.co/ioclab/ioc-controlnet/resolve/main/models/control_v1p_sd15_brightness.safetensors"
+
+# Download LoRA: add_detail
+RUN echo "Downloading add_detail.safetensors..." && \
+    wget -q --show-progress -O models/loras/add_detail.safetensors \
+      "https://civitai.com/api/download/models/62833"
+
+# Download VAE: blessed2
+RUN echo "Downloading blessed2.vae.pt..." && \
+    wget -q --show-progress -O models/vae/blessed2.vae.pt \
+      "https://huggingface.co/NoCrypt/blessed_vae/resolve/main/blessed2.vae.pt"
+
+# Download Upscale Model: 4x-UltraSharp
+RUN echo "Downloading 4x-UltraSharp.pth..." && \
+    wget -q --show-progress -O models/upscale_models/4x-UltraSharp.pth \
+      "https://huggingface.co/Kim2091/UltraSharp/resolve/main/4x-UltraSharp.pth"
+
+# Stage 3: Final image with models
 FROM base AS final
 
-# Copy any downloaded models if they exist
+# Copy downloaded models
 COPY --from=downloader /comfyui/models /comfyui/models
 
 WORKDIR /comfyui
 
 # Labels
 LABEL org.opencontainers.image.source="https://github.com/tk-aria/comfyui-k8s-deployment"
-LABEL org.opencontainers.image.description="ComfyUI for Kubernetes (CPU mode)"
+LABEL org.opencontainers.image.description="ComfyUI for Kubernetes with workflow models"
 LABEL org.opencontainers.image.licenses="MIT"
