@@ -61,12 +61,6 @@ spec:
         volumeMounts:
         - name: output-volume
           mountPath: /comfyui/output
-        - name: models-volume
-          mountPath: /comfyui/models
-          subPath: comfyui-models
       volumes:
       - name: output-volume
         emptyDir: {}
-      - name: models-volume
-        persistentVolumeClaim:
-          claimName: local-pvc
