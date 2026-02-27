@@ -117,32 +117,32 @@ WORKDIR /comfyui
 
 # Download Checkpoint: PrimeMix V2.1
 RUN echo "Downloading primemix_v21.safetensors..." && \
-    wget -q --show-progress -O models/checkpoints/primemix_v21.safetensors \
+    curl -fSL --retry 3 --retry-delay 5 -o models/checkpoints/primemix_v21.safetensors \
       "https://huggingface.co/Kevalon/orangecocoamix/resolve/main/primemix_v21.safetensors"
 
 # Download ControlNet: QR Code Monster v2
 RUN echo "Downloading control_v1p_sd15_qrcode_monster_v2.safetensors..." && \
-    wget -q --show-progress -O models/controlnet/control_v1p_sd15_qrcode_monster_v2.safetensors \
+    curl -fSL --retry 3 --retry-delay 5 -o models/controlnet/control_v1p_sd15_qrcode_monster_v2.safetensors \
       "https://huggingface.co/monster-labs/control_v1p_sd15_qrcode_monster/resolve/main/v2/control_v1p_sd15_qrcode_monster_v2.safetensors"
 
 # Download ControlNet: Brightness
 RUN echo "Downloading control_v1p_sd15_brightness.safetensors..." && \
-    wget -q --show-progress -O models/controlnet/control_v1p_sd15_brightness.safetensors \
+    curl -fSL --retry 3 --retry-delay 5 -o models/controlnet/control_v1p_sd15_brightness.safetensors \
       "https://huggingface.co/ioclab/ioc-controlnet/resolve/main/models/control_v1p_sd15_brightness.safetensors"
 
 # Download LoRA: add_detail
 RUN echo "Downloading add_detail.safetensors..." && \
-    wget -q --show-progress -O models/loras/add_detail.safetensors \
+    curl -fSL --retry 3 --retry-delay 5 -o models/loras/add_detail.safetensors \
       "https://civitai.com/api/download/models/62833"
 
 # Download VAE: blessed2
 RUN echo "Downloading blessed2.vae.pt..." && \
-    wget -q --show-progress -O models/vae/blessed2.vae.pt \
+    curl -fSL --retry 3 --retry-delay 5 -o models/vae/blessed2.vae.pt \
       "https://huggingface.co/NoCrypt/blessed_vae/resolve/main/blessed2.vae.pt"
 
 # Download Upscale Model: 4x-UltraSharp
 RUN echo "Downloading 4x-UltraSharp.pth..." && \
-    wget -q --show-progress -O models/upscale_models/4x-UltraSharp.pth \
+    curl -fSL --retry 3 --retry-delay 5 -o models/upscale_models/4x-UltraSharp.pth \
       "https://huggingface.co/Kim2091/UltraSharp/resolve/main/4x-UltraSharp.pth"
 
 # Stage 3: Final image with models
