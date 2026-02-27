@@ -118,7 +118,7 @@ WORKDIR /comfyui
 # Download Checkpoint: PrimeMix V2.1
 RUN echo "Downloading primemix_v21.safetensors..." && \
     curl -fSL --retry 3 --retry-delay 5 -o models/checkpoints/primemix_v21.safetensors \
-      "https://huggingface.co/Kevalon/orangecocoamix/resolve/main/primemix_v21.safetensors"
+      "https://huggingface.co/qiaoqiao66/qiaoqiao66/resolve/main/primemix_v21.safetensors"
 
 # Download ControlNet: QR Code Monster v2
 RUN echo "Downloading control_v1p_sd15_qrcode_monster_v2.safetensors..." && \
