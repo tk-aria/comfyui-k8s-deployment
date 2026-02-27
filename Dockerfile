@@ -115,10 +115,10 @@ ARG MODEL_TYPE=workflow
 
 WORKDIR /comfyui
 
-# Download Checkpoint: Counterfeit V3.0 (anime model)
-RUN echo "Downloading Counterfeit-V3.0_fp16.safetensors..." && \
-    wget -q --show-progress -O models/checkpoints/Counterfeit-V3.0_fp16.safetensors \
-      "https://huggingface.co/gsdf/Counterfeit-V3.0/resolve/main/Counterfeit-V3.0_fp16.safetensors"
+# Download Checkpoint: PrimeMix V2.1
+RUN echo "Downloading primemix_v21.safetensors..." && \
+    wget -q --show-progress -O models/checkpoints/primemix_v21.safetensors \
+      "https://huggingface.co/Kevalon/orangecocoamix/resolve/main/primemix_v21.safetensors"
 
 # Download ControlNet: QR Code Monster v2
 RUN echo "Downloading control_v1p_sd15_qrcode_monster_v2.safetensors..." && \
