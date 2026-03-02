@@ -1,0 +1,87 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: comfyui-qwen
+  namespace: default
+  labels:
+    app: comfyui-qwen
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: comfyui-qwen
+  strategy:
+    rollingUpdate:
+      maxSurge: 25%
+      maxUnavailable: 25%
+    type: RollingUpdate
+  template:
+    metadata:
+      labels:
+        app: comfyui-qwen
+    spec:
+      containers:
+        - name: comfyui-qwen
+          image: ghcr.io/tk-aria/comfyui-qwen:v1.0.0-qwen
+          imagePullPolicy: IfNotPresent
+          ports:
+            - name: http
+              containerPort: 8188
+              protocol: TCP
+          env:
+            - name: COMFYUI_OUTPUT_PATH
+              value: /comfyui/output
+          resources:
+            requests:
+              cpu: "10m"
+              memory: "2Gi"
+            limits:
+              cpu: "4"
+              memory: "16Gi"
+          volumeMounts:
+            - name: models-volume
+              mountPath: /comfyui/models
+            - name: output-volume
+              mountPath: /comfyui/output
+          readinessProbe:
+            httpGet:
+              path: /
+              port: 8188
+            initialDelaySeconds: 60
+            periodSeconds: 10
+            failureThreshold: 5
+          livenessProbe:
+            httpGet:
+              path: /
+              port: 8188
+            initialDelaySeconds: 120
+            periodSeconds: 30
+            failureThreshold: 5
+          tty: true
+      imagePullSecrets:
+        - name: ghcr-credentials
+      nodeSelector:
+        kubernetes.io/os: linux
+      volumes:
+        - name: models-volume
+          persistentVolumeClaim:
+            claimName: pvc-smb
+        - name: output-volume
+          emptyDir: {}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: comfyui-qwen
+  namespace: default
+  labels:
+    app: comfyui-qwen
+spec:
+  type: ClusterIP
+  ports:
+    - port: 8188
+      targetPort: 8188
+      protocol: TCP
+      name: http
+  selector:
+    app: comfyui-qwen
