@@ -1,0 +1,94 @@
+# ComfyUI - Z-Image-Turbo (nvfp4 quantized)
+# Models baked into image (~8.3GB total)
+
+ARG BASE_IMAGE=nvidia/cuda:12.8.0-runtime-ubuntu24.04
+ARG COMFYUI_VERSION=latest
+
+# Stage 1: Base
+FROM ${BASE_IMAGE} AS base
+
+ARG COMFYUI_VERSION
+
+ENV DEBIAN_FRONTEND=noninteractive
+ENV PIP_PREFER_BINARY=1
+ENV PYTHONUNBUFFERED=1
+ENV CMAKE_BUILD_PARALLEL_LEVEL=8
+
+RUN apt-get update && apt-get install -y \
+    python3.12 \
+    python3.12-venv \
+    python3-pip \
+    git \
+    wget \
+    curl \
+    libgl1 \
+    libglib2.0-0 \
+    libsm6 \
+    libxext6 \
+    libxrender1 \
+    ffmpeg \
+    && ln -sf /usr/bin/python3.12 /usr/bin/python \
+    && apt-get autoremove -y \
+    && apt-get clean -y \
+    && rm -rf /var/lib/apt/lists/*
+
+RUN wget -qO- https://astral.sh/uv/install.sh | sh \
+    && ln -s /root/.local/bin/uv /usr/local/bin/uv \
+    && ln -s /root/.local/bin/uvx /usr/local/bin/uvx \
+    && uv venv /opt/venv
+
+ENV PATH="/opt/venv/bin:${PATH}"
+
+RUN uv pip install comfy-cli pip setuptools wheel
+
+RUN /usr/bin/yes | comfy --workspace /comfyui install --version "${COMFYUI_VERSION}"
+
+RUN uv pip install torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cu128
+
+WORKDIR /comfyui
+
+RUN mkdir -p models/checkpoints models/vae models/unet models/clip \
+    models/text_encoders models/diffusion_models models/loras \
+    models/controlnet models/embeddings models/upscale_models output
+
+WORKDIR /
+
+RUN uv pip install requests websocket-client
+
+EXPOSE 8188
+
+HEALTHCHECK --interval=30s --timeout=10s --start-period=120s --retries=5 \
+  CMD curl -f http://localhost:8188/ || exit 1
+
+CMD ["bash", "-c", "cd /comfyui && python -u main.py --listen 0.0.0.0 --port 8188 --disable-auto-launch --disable-metadata"]
+
+# Stage 2: Download Z-Image-Turbo models
+FROM base AS downloader
+
+WORKDIR /comfyui
+
+# Diffusion model (nvfp4 quantized, ~4.5GB)
+RUN echo "Downloading z_image_turbo_nvfp4.safetensors..." && \
+    curl -fSL --retry 3 --retry-delay 5 -o models/diffusion_models/z_image_turbo_nvfp4.safetensors \
+      "https://huggingface.co/Comfy-Org/z_image_turbo/resolve/main/split_files/diffusion_models/z_image_turbo_nvfp4.safetensors"
+
+# Text encoder (fp4 mixed, ~3.5GB)
+RUN echo "Downloading qwen_3_4b_fp4_mixed.safetensors..." && \
+    curl -fSL --retry 3 --retry-delay 5 -o models/text_encoders/qwen_3_4b_fp4_mixed.safetensors \
+      "https://huggingface.co/Comfy-Org/z_image_turbo/resolve/main/split_files/text_encoders/qwen_3_4b_fp4_mixed.safetensors"
+
+# VAE (~335MB)
+RUN echo "Downloading ae.safetensors..." && \
+    curl -fSL --retry 3 --retry-delay 5 -o models/vae/ae.safetensors \
+      "https://huggingface.co/Comfy-Org/z_image_turbo/resolve/main/split_files/vae/ae.safetensors"
+
+# Stage 3: Final
+FROM base AS final
+
+COPY --from=downloader /comfyui/models /comfyui/models
+
+WORKDIR /comfyui
+
+LABEL org.opencontainers.image.source="https://github.com/tk-aria/comfyui-k8s-deployment"
+LABEL org.opencontainers.image.description="ComfyUI - Z-Image-Turbo (nvfp4 quantized)"
+LABEL org.opencontainers.image.licenses="MIT"
