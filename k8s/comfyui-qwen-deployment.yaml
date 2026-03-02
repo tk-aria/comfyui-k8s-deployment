@@ -22,7 +22,7 @@ spec:
     spec:
       containers:
         - name: comfyui-qwen
-          image: ghcr.io/tk-aria/comfyui-qwen:v1.0.0-qwen
+          image: ghcr.io/tk-aria/comfyui-qwen:v1.0.0-qwen-078fc1c
           imagePullPolicy: IfNotPresent
           ports:
             - name: http
@@ -31,6 +31,8 @@ spec:
           env:
             - name: COMFYUI_OUTPUT_PATH
               value: /comfyui/output
+            - name: SKIP_MODEL_DOWNLOAD
+              value: "true"
           resources:
             requests:
               cpu: "10m"
@@ -64,8 +66,7 @@ spec:
         kubernetes.io/os: linux
       volumes:
         - name: models-volume
-          persistentVolumeClaim:
-            claimName: pvc-smb
+          emptyDir: {}
         - name: output-volume
           emptyDir: {}
 ---

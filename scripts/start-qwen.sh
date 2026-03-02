@@ -1,8 +1,12 @@
 #!/bin/bash
 set -e
 
-echo "Starting model download check..."
-/download-models.sh
+if [ "${SKIP_MODEL_DOWNLOAD}" != "true" ]; then
+    echo "Starting model download check..."
+    /download-models.sh
+else
+    echo "SKIP_MODEL_DOWNLOAD=true, skipping model download"
+fi
 
 echo "Starting ComfyUI..."
 cd /comfyui
